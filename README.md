@@ -3,6 +3,7 @@
 Internal proof-of-concept that lets us point a local Next.js UI at an OpenClaw workspace, validate that workspace, ingest the installed agents, and trigger automation runs through the OpenClaw CLI.
 
 - 📄 **Architecture & onboarding spec:** [`docs/app-incubator-poc-spec.md`](./docs/app-incubator-poc-spec.md)
+- 🛠️ **DEV playbook / API contracts:** [`docs/app-incubator-poc-onboarding-playbook.md`](./docs/app-incubator-poc-onboarding-playbook.md)
 - 🧭 **Agent instructions:** [`AGENTS.md`](./AGENTS.md) (single source of truth for AI helpers)
 - 🤖 **Claude briefing:** [`claude.md`](./claude.md)
 
@@ -45,6 +46,13 @@ public/                   # Static assets
 3. Agents page uses `GET /api/agents` or `GET /api/agents/:id` to show metadata, notes, and recent automation runs.
 4. Triggering an automation call uses `POST /api/agents/:id/run-flow`, which records the run, calls the OpenClaw CLI (mock/dry-run friendly), captures logs to `AUTOMATION_LOG_DIR`, and updates run status in SQLite.
 5. Health widget calls `GET /api/status` to verify DB connectivity, CLI availability, and workspace access.
+
+## Risks & Limitations (POC)
+- **Filesystem permissions:** the app assumes read access to `/root/.openclaw` and write access for logs. If the workspace is read-only, automations stay in dry-run mode and the UI surfaces a warning banner.
+- **Local Claude dependency:** automation flows expect a locally configured Claude/OpenClaw CLI. Set `DRY_RUN_AUTOMATION=true` to keep the demo safe if Claude is unavailable.
+- **Dry-run scope:** automation logs the intended command but skips applying diffs in the default configuration to avoid unexpected workspace mutations during demos.
+- **Single-user target:** this release optimises for a single developer laptop; multi-user / remote filesystems are out of scope and may exhibit locking or latency issues.
+- **Partial logging UX:** log files are written under `db/logs` and surfaced via API responses, but there is no dedicated UI for browsing historical logs yet.
 
 ## Testing / Validation
 - `pnpm lint` — ESLint (Next.js config)
