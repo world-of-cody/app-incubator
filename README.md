@@ -63,6 +63,12 @@ public/                   # Static assets
 ## Roadmap / Open Questions
 See the spec for risk tracking. Outstanding decisions: Claude endpoint wiring, whether to allow automation to apply diffs vs. dry-run preview, and UX for editing agent notes + reviewing run logs.
 
+## Deferred TODOs (tracked in spec §6-8)
+- [ ] Offload `POST /api/agents/:id/run-flow` to a background worker/queue so long-running Claude jobs do not block Next.js API threads.
+- [ ] Build a diff/log viewer UI tied to `automationRuns.logPath` so QA can review Claude output without SSHing into the host.
+- [ ] Wire a banner for `CLAUDE_MODE=mock` environments that clarifies automation is running in dry-run mode until we gate destructive applies.
+- [ ] Expand validation to cover Windows/WSL path edge cases before widening the POC audience beyond Linux.
+
 ## Implementation Notes & Complexity
 - **Complexity:** Low — this slice focuses on documentation + schema alignment; automation stays in dry-run mode until risks in the spec checklist are closed.
 - **Agent persistence:** `Agent.name`, `Agent.workspacePath`, `Agent.roles`, and `Agent.notes` are stored via the Prisma schema and surfaced in the UI immediately after ingestion (see Section 3 of the spec).

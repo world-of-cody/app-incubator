@@ -3,6 +3,10 @@
 ## Mission
 Bootstrap playground that validates OpenClaw workspaces, stores onboarding artifacts in SQLite via Prisma, and triggers automation runs through the OpenClaw CLI.
 
+## Reference Docs
+- [Architecture & onboarding spec](./docs/app-incubator-poc-spec.md)
+- [Onboarding playbook / API contracts](./docs/app-incubator-poc-onboarding-playbook.md)
+
 ## Stack
 - Next.js 14 (App Router, TypeScript, Tailwind)
 - Prisma + SQLite (file:./db/app.db)

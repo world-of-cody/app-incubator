@@ -208,3 +208,14 @@ Prioritisation: implement **agents** + **onboarding_sessions** first (required f
 - **Complexity remains Low** — this iteration focuses on documentation + schema alignment; no production automation runs should mutate workspaces without the dry-run flag enabled.
 - **Schema alignment** — Prisma models `Agent`, `OnboardingSession`, `AutomationRun`, and `AgentNote` are the canonical storage for the UI + automation engine. Keep migrations in sync with this file to avoid drift.
 - **Documentation pointers** — README links back to this spec and the onboarding playbook so every contributor can start from a single source of truth.
+
+## 11. Acceptance Criteria Traceability
+| Ticket Requirement | Where It Lives | Notes |
+|--------------------|---------------|-------|
+| **End-to-end flow with assumptions** | Sections 2 (High-Level Architecture) & 5 (Discovery & Interaction Flow) plus Section 6 (Assumptions & Risks) | Describes every hop from user → Next.js UI → API → automation engine, and captures the underlying assumptions that gate the demo scope. |
+| **Persisted agent fields (name, path, roles, notes)** | Section 3 (Data Model) + "Agent Metadata Field Mapping" table | `Agent.name`, `Agent.workspacePath`, `Agent.roles`, and `Agent.notes` are explicitly called out with storage/prioritisation guidance for the MVP. |
+| **Risk / pendings checklist** | Section 6 (Assumptions & Risks) & Checklist bullets | Includes mitigations + owner suggestions for permission gaps, Claude dependency, dry-run scope, DB locking, etc. |
+| **MVP success criteria & complexity** | Section 7 (MVP Success Criteria) and Section 10 (Implementation Notes & Complexity Confirmation) | Sets the demo-ready definition of done and reaffirms the "Low" complexity flag requested in the ticket. |
+
+This table can be copied into future tickets or QA notes to prove that the repository documentation satisfies the PM-defined acceptance criteria without needing to re-read the entire spec each time.
+

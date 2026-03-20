@@ -38,6 +38,7 @@ export async function POST(
   });
 
   try {
+    // TODO(cody): Dispatch to a background worker once the automation queue exists (spec §6)
     const result = await triggerAgentFlow({
       runId: run.id,
       agentSlug: agent.slug,

@@ -42,6 +42,7 @@ export async function triggerAgentFlow(input: RunFlowInput): Promise<AutomationF
   }`;
 
   if (dryRun) {
+    // TODO(cody): Surface structured diff previews here once real apply mode is allowed (spec §7)
     const summary = `Dry-run only. Command skipped: ${commandPreview}`;
     await writeLog(logPath, [
       headerLine(input.intent),
