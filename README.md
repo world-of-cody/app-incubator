@@ -21,6 +21,7 @@ pnpm dev                        # runs Next.js at http://localhost:3000
 | Name | Default | Purpose |
 |------|---------|---------|
 | `OPENCLAW_HOME` | `/root/.openclaw` | Root workspace to scan + run automations against |
+| `DATABASE_URL` | `file:../db/app.db` | Prisma CLI datasource (relative to `prisma/` folder so migrations land in `/db`) |
 | `APP_DB_PATH` | `./db/app.db` | Location of SQLite database (also used to build `DATABASE_URL`) |
 | `AUTOMATION_ENGINE_BIN` | `openclaw` | CLI binary the automation engine calls (must support `agent run`) |
 | `CLAUDE_AGENT_ID` | `percy` | Default Claude agent used when seeding automation runs |

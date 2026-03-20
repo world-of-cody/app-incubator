@@ -39,7 +39,8 @@ app-incubator/
   scripts/seed.ts           # seeds sample agent + session
 ```
 
-## TODOs
-- Replace API stubs with actual workspace discovery + automation wiring.
-- Implement UI flows on top of the mocked data returned by API routes.
-- Add integration tests once real flows exist.
+## Current Status / Next Up
+- ✅ Workspace validation + ingestion APIs are live and wired to Prisma/SQLite.
+- ✅ Automation engine wrapper is in place (defaults to dry-run); logs land under `db/logs`.
+- ✅ Onboarding + catalog UIs call the real actions via `next-safe-action`.
+- ⏭️ Next iteration: flesh out automation diff viewer + add integration tests covering the ingestion + run-flow endpoints.

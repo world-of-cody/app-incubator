@@ -26,12 +26,33 @@ const ensureDatabase = () => {
   return absolutePath;
 };
 
+const normalizeDatasourceUrl = (url?: string) => {
+  if (!url || !url.startsWith("file:")) {
+    return url;
+  }
+
+  const withoutScheme = url.replace(/^file:/, "");
+  const [pathPart, ...queryParts] = withoutScheme.split("?");
+  if (!pathPart) {
+    return url;
+  }
+
+  const absolutePath = path.isAbsolute(pathPart)
+    ? pathPart
+    : path.join(process.cwd(), pathPart);
+
+  const normalized = absolutePath.replace(/\\/g, "/");
+  const querySuffix = queryParts.length ? `?${queryParts.join("?")}` : "";
+  return `file:${normalized}${querySuffix}`;
+};
+
 const absoluteDbPath = ensureDatabase();
+const defaultDatasourceUrl = `file:${absoluteDbPath.replace(/\\/g, "/")}`;
+const datasourceUrl = normalizeDatasourceUrl(process.env.DATABASE_URL) ?? defaultDatasourceUrl;
 
 if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = new PrismaClient({
-    datasourceUrl:
-      process.env.DATABASE_URL ?? `file:${absoluteDbPath.replace(/\\/g, "/")}`,
+    datasourceUrl,
   });
 }
 
