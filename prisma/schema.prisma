@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id             String           @id @default(cuid())
+  slug           String           @unique
+  name           String
+  description    String?
+  workspacePath  String
+  roles          String           @default("[]")
+  tags           String           @default("[]")
+  skillPaths     String           @default("[]")
+  notes          String?
+  metadata       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  automationRuns AutomationRun[]
+  journal        AgentNote[]
+}
+
+model OnboardingSession {
+  id                 String           @id @default(cuid())
+  workspacePath      String
+  normalizedPath     String
+  status             String           @default("PENDING")
+  claudeAgentId      String?
+  notes              String?
+  metadata           String?
+  validationWarnings String?         @default("[]")
+  validationErrors   String?         @default("[]")
+  acknowledgedRisk   Boolean          @default(false)
+  completedAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  automationRuns     AutomationRun[]
+}
+
+model AutomationRun {
+  id            String      @id @default(cuid())
+  agentId       String
+  agent         Agent       @relation(fields: [agentId], references: [id])
+  sessionId     String?
+  session       OnboardingSession? @relation(fields: [sessionId], references: [id])
+  status        String      @default("PENDING")
+  intent        String?
+  dryRun        Boolean     @default(true)
+  claudePrompt  String?
+  outputSummary String?
+  externalRunId String?
+  logPath       String?
+  changesetPath String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([agentId])
+  @@index([sessionId])
+}
+
+model AgentNote {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  body      String
+  author    String   @default("system")
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+}
