@@ -58,20 +58,24 @@ All filesystem actions run server-side via Next.js API routes to avoid exposing 
 type ValidationMessage = {
   code: 'PATH_FORMAT' | 'NOT_ABSOLUTE' | 'NOT_FOUND' | 'NOT_DIRECTORY' |
         'READ_ONLY' | 'MISSING_FOLDERS' | 'NO_AGENTS' | 'PERMISSION_DENIED' |
-        'SAFETY_ACK_REQUIRED';
+        'OUTSIDE_HOME' | 'AGENTS_ROOT_MISSING' | 'SAFETY_ACK_REQUIRED';
   message: string;
 };
 ```
 
+(Implemented in [`src/lib/types/validation.ts`](../src/lib/types/validation.ts))
+
 | Step | Description | Failure Code | UX copy |
 |------|-------------|--------------|---------|
-| 1 | Absolute path w/out `..`, < 255 chars | `PATH_FORMAT` | "Enter an absolute path like `/root/.openclaw`. Relative paths are not allowed." |
+| 1 | Absolute path w/out `..`, < 255 chars | `PATH_FORMAT` / `NOT_ABSOLUTE` | "Enter an absolute path like `/root/.openclaw`. Relative paths are not allowed." |
 | 2 | `fs.stat` exists + directory | `NOT_FOUND` / `NOT_DIRECTORY` | "We couldn’t find that folder. Double-check the path." |
 | 3 | Read permissions (`fs.access R_OK`) | `READ_ONLY` | "App needs read access to inspect agents. Update permissions or run as the same user that owns the workspace." |
 | 4 | Required folders exist (`custom/skills`, `workspaces`) | `MISSING_FOLDERS` | "The folder doesn’t look like an OpenClaw workspace (missing `custom/skills`)." |
 | 5 | Write permissions for logs (`fs.access W_OK`) | `PERMISSION_DENIED` | Show warning but allow read-only mode; automation buttons stay disabled until resolved. |
-| 6 | At least one agent present (`workspaces/*/AGENTS.md`) | `NO_AGENTS` | "We couldn’t find any agents. Install one via `openclaw agent install ...` first." |
-| 7 | Safety acknowledgement checkbox | `SAFETY_ACK_REQUIRED` | "Please confirm you understand the automation will run locally." |
+| 6 | Path resides under `OPENCLAW_HOME` | `OUTSIDE_HOME` *(warning)* | "This path lives outside `/root/.openclaw`. Proceed only if you trust the folder." |
+| 7 | Workspace root includes `AGENTS.md` | `AGENTS_ROOT_MISSING` *(warning)* | "Root AGENTS.md missing; discovery falls back to nested manifests." |
+| 8 | At least one agent present (`workspaces/*/AGENTS.md`) | `NO_AGENTS` | "We couldn’t find any agents. Install one via `openclaw agent install ...` first." |
+| 9 | Safety acknowledgement checkbox | `SAFETY_ACK_REQUIRED` | "Please confirm you understand the automation will run locally." |
 
 Successful validation acknowledges risks by setting `OnboardingSession.acknowledgedRisk = true` and unlocking ingestion.
 

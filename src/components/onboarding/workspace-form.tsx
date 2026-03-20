@@ -6,13 +6,14 @@ import {
   validateWorkspaceAction,
   ingestWorkspaceAction,
 } from "@/lib/actions/onboarding";
+import type { ValidationMessage } from "@/lib/types/validation";
 
 type ValidationSummary = {
   sessionId: string;
   status: string;
   normalizedPath: string;
-  warnings: string[];
-  errors: string[];
+  warnings: ValidationMessage[];
+  errors: ValidationMessage[];
 };
 
 type IngestSummary = {
@@ -185,7 +186,9 @@ export function WorkspaceForm() {
               <p className="font-medium text-rose-300">Blocking issues</p>
               <ul className="list-disc space-y-1 pl-5 text-rose-200">
                 {validationSummary.errors.map((error) => (
-                  <li key={error}>{error}</li>
+                  <li key={`${error.code}-${error.message}`}>
+                    <span className="font-semibold">[{error.code}]</span> {error.message}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -195,7 +198,9 @@ export function WorkspaceForm() {
               <p className="font-medium text-amber-300">Warnings</p>
               <ul className="list-disc space-y-1 pl-5 text-amber-200">
                 {validationSummary.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
+                  <li key={`${warning.code}-${warning.message}`}>
+                    <span className="font-semibold">[{warning.code}]</span> {warning.message}
+                  </li>
                 ))}
               </ul>
             </div>

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
+import { ValidationMessage } from "@/lib/types/validation";
 
 const OPENCLAW_HOME = path.resolve(env.OPENCLAW_HOME);
 const MAX_SCAN_DEPTH = 3;
@@ -12,8 +13,8 @@ const MAX_PATH_LENGTH = 255;
 export type WorkspaceValidationResult = {
   ok: boolean;
   normalizedPath: string;
-  warnings: string[];
-  errors: string[];
+  warnings: ValidationMessage[];
+  errors: ValidationMessage[];
   stats: {
     workspaceExists: boolean;
     withinOpenClawHome: boolean;
@@ -50,77 +51,126 @@ export function normalizeWorkspacePath(input: string) {
 }
 
 export async function validateWorkspacePath(rawPath: string): Promise<WorkspaceValidationResult> {
-  const warnings: string[] = [];
-  const errors: string[] = [];
+  const warnings: ValidationMessage[] = [];
+  const errors: ValidationMessage[] = [];
   const normalizedPath = normalizeWorkspacePath(rawPath);
+  const trimmedPath = rawPath.trim();
 
-  if (!path.isAbsolute(rawPath.trim())) {
-    errors.push("Workspace path must be absolute (e.g., /root/.openclaw).");
+  if (!path.isAbsolute(trimmedPath)) {
+    errors.push(message("NOT_ABSOLUTE", "Workspace path must be absolute (e.g., /root/.openclaw)."));
   }
 
-  if (rawPath.includes('..')) {
-    errors.push("Workspace path cannot include traversal segments ('..').");
+  if (trimmedPath.includes("..")) {
+    errors.push(message("PATH_FORMAT", "Workspace path cannot include traversal segments ('..')."));
   }
 
   if (normalizedPath.length >= MAX_PATH_LENGTH) {
-    errors.push(`Workspace path exceeds the ${MAX_PATH_LENGTH}-character limit.`);
+    errors.push(
+      message("PATH_FORMAT", `Workspace path exceeds the ${MAX_PATH_LENGTH}-character limit.`),
+    );
   }
 
-  let workspaceExists = true;
+  let workspaceExists = false;
   let agentsFileExists = false;
   let writable = true;
   let hasWorkspacesDir = false;
   let hasCustomSkillsDir = false;
   let agentManifestCount = 0;
 
-  try {
-    const stats = await fs.stat(normalizedPath);
-    if (!stats.isDirectory()) {
-      workspaceExists = false;
-      errors.push("The provided path exists but is not a directory.");
-    } else {
-      await fs.access(normalizedPath, fsConstants.R_OK | fsConstants.X_OK);
-      try {
-        await fs.access(normalizedPath, fsConstants.W_OK);
-      } catch {
-        writable = false;
-        warnings.push("Workspace is read-only; automation may fail to apply changes.");
+  const pathFormatFailed = errors.some((error) =>
+    error.code === "NOT_ABSOLUTE" || error.code === "PATH_FORMAT",
+  );
+
+  if (!pathFormatFailed) {
+    try {
+      const stats = await fs.stat(normalizedPath);
+      if (!stats.isDirectory()) {
+        errors.push(message("NOT_DIRECTORY", "The provided path exists but is not a directory."));
+      } else {
+        workspaceExists = true;
+        try {
+          await fs.access(normalizedPath, fsConstants.R_OK | fsConstants.X_OK);
+        } catch {
+          errors.push(
+            message(
+              "READ_ONLY",
+              "App Incubator needs read/execute permissions to inspect the workspace.",
+            ),
+          );
+        }
+
+        try {
+          await fs.access(normalizedPath, fsConstants.W_OK);
+        } catch {
+          writable = false;
+          warnings.push(
+            message(
+              "PERMISSION_DENIED",
+              "Workspace is read-only; automation runs will stay in dry-run mode until write access is granted.",
+            ),
+          );
+        }
       }
+    } catch {
+      errors.push(message("NOT_FOUND", "Workspace directory not found."));
     }
-  } catch {
-    workspaceExists = false;
-    errors.push("Workspace directory not found.");
   }
 
   const withinOpenClawHome = normalizedPath.startsWith(OPENCLAW_HOME);
-  if (!withinOpenClawHome) {
-    warnings.push(`Path is outside OPENCLAW_HOME (${OPENCLAW_HOME}).`);
+  if (!pathFormatFailed && !withinOpenClawHome) {
+    warnings.push(
+      message("OUTSIDE_HOME", `Path is outside OPENCLAW_HOME (${OPENCLAW_HOME}). Proceed with caution.`),
+    );
   }
 
-  if (workspaceExists) {
+  const canInspectStructure = workspaceExists && !errors.some((error) => error.code === "READ_ONLY");
+
+  if (canInspectStructure) {
     const agentsFile = path.join(normalizedPath, "AGENTS.md");
     try {
       await fs.access(agentsFile, fsConstants.R_OK);
       agentsFileExists = true;
     } catch {
-      warnings.push("Missing AGENTS.md in the workspace root. Discovery will fall back to nested manifests.");
+      warnings.push(
+        message(
+          "AGENTS_ROOT_MISSING",
+          "Missing AGENTS.md in the workspace root. Discovery will fall back to nested manifests.",
+        ),
+      );
     }
 
-    const [workspacesDir, customSkillsDir] = REQUIRED_CHILD_DIRS.map((dir) => path.join(normalizedPath, dir));
+    const [workspacesDir, customSkillsDir] = REQUIRED_CHILD_DIRS.map((dir) =>
+      path.join(normalizedPath, dir),
+    );
     hasWorkspacesDir = await directoryExists(workspacesDir);
     hasCustomSkillsDir = await directoryExists(customSkillsDir);
 
     if (!hasWorkspacesDir) {
-      errors.push("Expected workspaces directory was not found under the workspace root.");
+      errors.push(
+        message(
+          "MISSING_FOLDERS",
+          "Expected workspaces directory was not found under the workspace root.",
+        ),
+      );
     }
 
     if (!hasCustomSkillsDir) {
-      warnings.push("custom/skills directory not found; skill discovery may be limited.");
+      errors.push(
+        message(
+          "MISSING_FOLDERS",
+          "Expected custom/skills directory was not found under the workspace root.",
+        ),
+      );
     }
 
     agentManifestCount = await countAgentManifests(normalizedPath);
     if (agentManifestCount === 0) {
-      errors.push("No AGENTS.md manifests were found within the workspace.");
+      errors.push(
+        message(
+          "NO_AGENTS",
+          "No AGENTS.md manifests were found within the workspace. Install at least one agent first.",
+        ),
+      );
     }
   }
 
@@ -139,6 +189,10 @@ export async function validateWorkspacePath(rawPath: string): Promise<WorkspaceV
       agentManifestCount,
     },
   };
+}
+
+function message(code: ValidationMessage["code"], text: string): ValidationMessage {
+  return { code, message: text };
 }
 
 async function directoryExists(dirPath: string) {
