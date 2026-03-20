@@ -62,3 +62,9 @@ public/                   # Static assets
 
 ## Roadmap / Open Questions
 See the spec for risk tracking. Outstanding decisions: Claude endpoint wiring, whether to allow automation to apply diffs vs. dry-run preview, and UX for editing agent notes + reviewing run logs.
+
+## Implementation Notes & Complexity
+- **Complexity:** Low — this slice focuses on documentation + schema alignment; automation stays in dry-run mode until risks in the spec checklist are closed.
+- **Agent persistence:** `Agent.name`, `Agent.workspacePath`, `Agent.roles`, and `Agent.notes` are stored via the Prisma schema and surfaced in the UI immediately after ingestion (see Section 3 of the spec).
+- **Schema alignment:** Prisma migrations already cover `Agent`, `OnboardingSession`, `AutomationRun`, and `AgentNote`; keep future changes in sync with [`docs/app-incubator-poc-spec.md`](./docs/app-incubator-poc-spec.md).
+- **Next steps:** Track remaining risks/pending items in the spec checklist before enabling non-dry-run automations.

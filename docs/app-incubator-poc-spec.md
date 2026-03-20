@@ -104,6 +104,16 @@ Fields requested in acceptance criteria (name, path, roles, notes) live primaril
 
 Prioritisation: implement **agents** + **onboarding_sessions** first (required for MVP). `automation_runs` is needed for flow telemetry. `notes` optional for POC, can substitute with inline text area persisted on `agents.metadata` if schedule tight.
 
+### Agent Metadata Field Mapping (Acceptance Criterion #2)
+| Concept | Prisma field | Notes |
+|---------|--------------|-------|
+| Display name | `Agent.name` | Required UI label + search key. |
+| Workspace path | `Agent.workspacePath` | Absolute path stored as-is; validated during onboarding. |
+| Roles | `Agent.roles` | JSON string array (defaults to `[]`). UI helper parses into chips. |
+| Notes | `Agent.notes` + `AgentNote` rows | Quick notes stored inline via `Agent.notes`; richer journaling uses the `AgentNote` relation. |
+
+> These fields are persisted immediately after ingestion so that reloading the UI or restarting the server retains agent metadata without rescanning the filesystem.
+
 ---
 
 ## 4. Workspace Path Input & Validation
@@ -161,6 +171,13 @@ Prioritisation: implement **agents** + **onboarding_sessions** first (required f
 | Scope limits | POC focuses on discovery + one automation flow | Stakeholders might expect full skill publishing — explicitly mark as future phase. |
 | SQLite file locking | App + background automation may access DB concurrently | Use single Prisma client, ensure WAL mode to reduce locking errors. |
 
+### Risk & Pending Checklist for Next Dev Stage
+- [ ] Confirm `/root/.openclaw` access patterns on Windows/WSL (today we only validate POSIX paths).
+- [ ] Decide whether automation can ever exit dry-run mode during demos; document the toggle in UI copy.
+- [ ] Wire fallback when Claude CLI/agent is unreachable (UI banner + disablement).
+- [ ] Implement log viewer for `automation_runs` so QA can inspect prompts/diffs without SSH.
+- [ ] Assign owner for enabling WAL mode + monitoring DB file growth.
+
 ---
 
 ## 7. MVP Success Criteria (Internal Demo)
@@ -186,3 +203,8 @@ Prioritisation: implement **agents** + **onboarding_sessions** first (required f
 3. **Data schema** created (Prisma migrations) covering tables in section 3.
 4. **Risk checklist** reviewed and owners assigned (permissions, Claude availability, scope).
 5. **MVP criteria** confirmed with stakeholders; demo script drafted.
+
+## 10. Implementation Notes & Complexity Confirmation
+- **Complexity remains Low** — this iteration focuses on documentation + schema alignment; no production automation runs should mutate workspaces without the dry-run flag enabled.
+- **Schema alignment** — Prisma models `Agent`, `OnboardingSession`, `AutomationRun`, and `AgentNote` are the canonical storage for the UI + automation engine. Keep migrations in sync with this file to avoid drift.
+- **Documentation pointers** — README links back to this spec and the onboarding playbook so every contributor can start from a single source of truth.
