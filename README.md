@@ -17,6 +17,13 @@ pnpm db:seed                    # optional dev data
 pnpm dev                        # runs Next.js at http://localhost:3000
 ```
 
+## POC Quickstart Summary
+1. **Point the UI at your OpenClaw workspace** — run `pnpm dev`, open `/onboarding`, and enter the absolute path (default `/root/.openclaw`). The UI calls `POST /api/onboarding/validate-workspace` using the validation contract in [docs/app-incubator-poc-spec.md](./docs/app-incubator-poc-spec.md#4-workspace-path-input--validation).
+2. **Ingest agents** — trigger the ingest step so the API scans `workspaces/*/AGENTS.md`, persists `Agent.name`, `workspacePath`, `roles`, and `notes`, and seeds `automation_runs`.
+3. **Run a dry-run automation** — from the Agents dashboard choose "Generate onboarding plan" to call `POST /api/agents/:id/run-flow`. By default `DRY_RUN_AUTOMATION=true`, so Claude output is stored to SQLite/logs without mutating files.
+4. **Review results** — inspect the Agents page or `db/logs` for run summaries, and reference the spec sections on risks + MVP criteria before demoing.
+
+
 ### Environment Variables
 | Name | Default | Purpose |
 |------|---------|---------|
@@ -74,3 +81,4 @@ See the spec for risk tracking. Outstanding decisions: Claude endpoint wiring, w
 - **Agent persistence:** `Agent.name`, `Agent.workspacePath`, `Agent.roles`, and `Agent.notes` are stored via the Prisma schema and surfaced in the UI immediately after ingestion (see Section 3 of the spec).
 - **Schema alignment:** Prisma migrations already cover `Agent`, `OnboardingSession`, `AutomationRun`, and `AgentNote`; keep future changes in sync with [`docs/app-incubator-poc-spec.md`](./docs/app-incubator-poc-spec.md).
 - **Next steps:** Track remaining risks/pending items in the spec checklist before enabling non-dry-run automations.
+

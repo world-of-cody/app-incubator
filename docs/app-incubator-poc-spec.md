@@ -2,6 +2,19 @@
 
 > Source: Percy (2026-03-20). Adapted into repo so every agent can read it offline.
 
+## Table of Contents
+1. [Objective](#1-objective)
+2. [High-Level Architecture](#2-high-level-architecture)
+3. [Data Model (SQLite)](#3-data-model-sqlite)
+4. [Workspace Path Input & Validation](#4-workspace-path-input--validation)
+5. [Discovery & Interaction Flow](#5-discovery--interaction-flow)
+6. [Assumptions & Risks](#6-assumptions--risks)
+7. [MVP Success Criteria (Internal Demo)](#7-mvp-success-criteria-internal-demo)
+8. [Outstanding Questions / Next Steps](#8-outstanding-questions--next-steps)
+9. [Suggested Acceptance Criteria (Ready for Dev)](#9-suggested-acceptance-criteria-ready-for-dev)
+10. [Implementation Notes & Complexity Confirmation](#10-implementation-notes--complexity-confirmation)
+11. [Acceptance Criteria Traceability](#11-acceptance-criteria-traceability)
+
 ## 1. Objective
 Deliver a proof-of-concept that demonstrates how a local Next.js webapp can discover OpenClaw agents, let the user select which ones to incubate into reusable skills, and orchestrate the loop **User → Claude (automation engine) → workspace changes**. The POC targets an internal demo, so scope is intentionally narrow and optimised for the happy path on a single developer laptop.
 
@@ -133,6 +146,16 @@ Prioritisation: implement **agents** + **onboarding_sessions** first (required f
 - Offer “Use detected path” if environment variable `OPENCLAW_HOME` available.
 - Cache validated path inside `onboarding_sessions.workspace_root`.
 
+#### Validation Response Contract
+| Step | Failure Code | Message Copy | Notes |
+|------|--------------|--------------|-------|
+| 1 (format) | `400_INVALID_PATH` | "Provide an absolute path (e.g., /root/.openclaw)." | Rejects relative paths + traversal attempts. |
+| 2 (exists/read) | `404_WORKSPACE_MISSING` | "Path not found or unreadable." | Instruct user to mount or fix perms. |
+| 3 (structure) | `422_INVALID_WORKSPACE` | "Missing expected OpenClaw folders." | Links to docs for installing OpenClaw. |
+| 4 (permissions) | `403_NEEDS_WRITE_ACCESS` | "We need write access for logs/patches." | Allows bypass only if user toggles dry-run. |
+| 5 (agent presence) | `204_NO_AGENTS_FOUND` | "Workspace is valid but has no agents yet." | Treated as warning; user can continue after acknowledging. |
+| 6 (safety confirmation) | `412_ACK_REQUIRED` | "Please confirm you understand the local automation risks." | Block onboarding until checkbox ticked. |
+
 ---
 
 ## 5. Discovery & Interaction Flow
@@ -157,6 +180,25 @@ Prioritisation: implement **agents** + **onboarding_sessions** first (required f
 5. **Result Surfacing**
    - UI polls `GET /api/agents/:id` or websockets to show status, diffs, next steps.
    - Success message summarises changes; option to open generated skill folder.
+
+### Sequence Summary (text)
+```
+User -> Next.js UI: enter workspace path
+Next.js UI -> Local API: POST /api/onboarding/validate-workspace
+Local API -> Filesystem: stat + access checks
+Local API --> SQLite: upsert onboarding_session (status=ready)
+Next.js UI <- Local API: validation OK + session id
+User -> Next.js UI: click "Ingest agents"
+Next.js UI -> Local API: POST /api/onboarding/ingest
+Local API -> Filesystem: scan workspaces/*/AGENTS.md
+Local API --> SQLite: upsert agents + automation_run stubs
+Automation Engine <- Local API: run-flow intent payload
+Automation Engine -> Claude: structured prompt + context
+Claude -> Automation Engine: plan/diff output
+Automation Engine -> Filesystem: apply diff (dry run by default)
+Automation Engine --> SQLite: update automation_run status
+Next.js UI <- Local API: GET /api/agents/:id with latest metadata + run logs
+```
 
 ---
 
