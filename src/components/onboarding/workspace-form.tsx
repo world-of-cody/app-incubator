@@ -21,6 +21,28 @@ type IngestSummary = {
   runs: { id: string; agentId: string }[];
 };
 
+type FlattenedValidationError = {
+  fieldErrors?: Record<string, string[] | undefined>;
+  formErrors?: string[];
+};
+
+const collectMessages = (error?: FlattenedValidationError | null) => {
+  if (!error) {
+    return [] as string[];
+  }
+
+  const messages = [...(error.formErrors ?? [])].filter(Boolean);
+  const fieldErrors = error.fieldErrors ?? {};
+
+  Object.values(fieldErrors).forEach((errors) => {
+    if (errors) {
+      messages.push(...errors.filter(Boolean));
+    }
+  });
+
+  return messages;
+};
+
 export function WorkspaceForm() {
   const [workspacePath, setWorkspacePath] = useState("/root/.openclaw/workspaces/demo");
   const [acknowledgeRisk, setAcknowledgeRisk] = useState(false);
@@ -28,31 +50,56 @@ export function WorkspaceForm() {
   const [dryRun, setDryRun] = useState(true);
   const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null);
   const [ingestSummary, setIngestSummary] = useState<IngestSummary | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [ingestErrors, setIngestErrors] = useState<string[]>([]);
 
   const validateAction = useAction(validateWorkspaceAction);
   const ingestAction = useAction(ingestWorkspaceAction);
 
   const handleValidate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    setValidationErrors([]);
     setIngestSummary(null);
 
-    const result = await validateAction.executeAsync({ workspacePath, acknowledgeRisk });
+    if (!acknowledgeRisk) {
+      setValidationSummary(null);
+      setValidationErrors([
+        "You must acknowledge the automation risk before continuing.",
+      ]);
+      return;
+    }
+
+    const result = await validateAction.executeAsync({
+      workspacePath,
+      acknowledgeRisk: true,
+    });
+    if (result?.validationErrors) {
+      setValidationSummary(null);
+      setValidationErrors(collectMessages(result.validationErrors as FlattenedValidationError));
+      return;
+    }
+
+    if (result?.serverError) {
+      setValidationSummary(null);
+      setValidationErrors([result.serverError.message ?? "Failed to validate workspace"]);
+      return;
+    }
+
     if (result?.data) {
       setValidationSummary(result.data as ValidationSummary);
-    } else if (result?.serverError) {
-      setValidationSummary(null);
-      setErrorMessage(result.serverError.message);
+      return;
     }
+
+    setValidationSummary(null);
+    setValidationErrors(["Unknown validation response"]);
   };
 
   const handleIngest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setErrorMessage(null);
+    setIngestErrors([]);
 
     if (!validationSummary?.sessionId) {
-      setErrorMessage("Validate a workspace before running ingestion.");
+      setIngestErrors(["Validate a workspace before running ingestion."]);
       return;
     }
 
@@ -62,12 +109,25 @@ export function WorkspaceForm() {
       dryRun,
     });
 
+    if (result?.validationErrors) {
+      setIngestSummary(null);
+      setIngestErrors(collectMessages(result.validationErrors as FlattenedValidationError));
+      return;
+    }
+
+    if (result?.serverError) {
+      setIngestSummary(null);
+      setIngestErrors([result.serverError.message ?? "Failed to ingest workspace"]);
+      return;
+    }
+
     if (result?.data) {
       setIngestSummary(result.data as IngestSummary);
-    } else if (result?.serverError) {
-      setIngestSummary(null);
-      setErrorMessage(result.serverError.message);
+      return;
     }
+
+    setIngestSummary(null);
+    setIngestErrors(["Unknown ingestion response"]);
   };
 
   return (
@@ -103,6 +163,17 @@ export function WorkspaceForm() {
           {validateAction.isPending ? "Validating…" : "Validate workspace"}
         </button>
       </form>
+
+      {validationErrors.length > 0 && (
+        <div className="rounded-xl border border-rose-900/40 bg-rose-950/40 p-4 text-sm text-rose-100">
+          <p className="font-semibold">Validation blocked</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {validationErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {validationSummary && (
         <div className="rounded-xl border border-slate-800/50 bg-slate-900/30 p-4 text-sm">
@@ -168,6 +239,17 @@ export function WorkspaceForm() {
         </button>
       </form>
 
+      {ingestErrors.length > 0 && (
+        <div className="rounded-xl border border-amber-900/40 bg-amber-950/30 p-4 text-sm text-amber-100">
+          <p className="font-semibold">Ingestion blocked</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {ingestErrors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {ingestSummary && (
         <div className="rounded-xl border border-emerald-700/40 bg-emerald-900/20 p-4 text-sm text-emerald-100">
           <p className="font-semibold">Queued {ingestSummary.agents.length} agents</p>
@@ -180,8 +262,6 @@ export function WorkspaceForm() {
           </ul>
         </div>
       )}
-
-      {errorMessage && <p className="text-sm text-rose-300">{errorMessage}</p>}
     </div>
   );
 }

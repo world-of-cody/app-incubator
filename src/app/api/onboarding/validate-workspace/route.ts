@@ -13,22 +13,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const { session, validation } = await createValidationSession({
-    workspacePath: parsed.data.workspacePath,
-    acknowledgedRisk: parsed.data.acknowledgeRisk,
-    source: "api",
-  });
+  try {
+    const { session, validation } = await createValidationSession({
+      workspacePath: parsed.data.workspacePath,
+      acknowledgedRisk: parsed.data.acknowledgeRisk,
+      source: "api",
+    });
 
-  const status = validation.ok ? 200 : 422;
+    const status = validation.ok ? 200 : 422;
 
-  return NextResponse.json(
-    {
-      sessionId: session.id,
-      status: session.status,
-      normalizedPath: session.normalizedPath,
-      warnings: validation.warnings,
-      errors: validation.errors,
-    },
-    { status }
-  );
+    return NextResponse.json(
+      {
+        sessionId: session.id,
+        status: session.status,
+        normalizedPath: session.normalizedPath,
+        warnings: validation.warnings,
+        errors: validation.errors,
+      },
+      { status }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message: error instanceof Error ? error.message : "Failed to validate workspace",
+      },
+      { status: 422 }
+    );
+  }
 }

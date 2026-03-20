@@ -5,7 +5,7 @@ import { discoverAgents, validateWorkspacePath } from "@/lib/workspace";
 
 type ValidationInput = {
   workspacePath: string;
-  acknowledgedRisk?: boolean;
+  acknowledgedRisk: boolean;
   source?: string;
 };
 
@@ -16,6 +16,10 @@ type IngestInput = {
 };
 
 export async function createValidationSession(input: ValidationInput) {
+  if (!input.acknowledgedRisk) {
+    throw new Error("You must acknowledge the automation risk before continuing.");
+  }
+
   const validation = await validateWorkspacePath(input.workspacePath);
 
   const session = await prisma.onboardingSession.create({
@@ -24,7 +28,7 @@ export async function createValidationSession(input: ValidationInput) {
       normalizedPath: validation.normalizedPath,
       status: validation.ok ? "VALIDATED" : "FAILED",
       claudeAgentId: env.CLAUDE_AGENT_ID,
-      acknowledgedRisk: Boolean(input.acknowledgedRisk),
+      acknowledgedRisk: true,
       validationWarnings: serializeJson(validation.warnings, []),
       validationErrors: serializeJson(validation.errors, []),
       metadata: serializeJson(

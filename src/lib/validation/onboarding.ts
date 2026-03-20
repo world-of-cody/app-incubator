@@ -2,7 +2,11 @@ import { z } from "zod";
 
 export const validateWorkspaceSchema = z.object({
   workspacePath: z.string().min(1, "workspacePath is required"),
-  acknowledgeRisk: z.boolean().optional(),
+  acknowledgeRisk: z.literal(true, {
+    errorMap: () => ({
+      message: "You must acknowledge the automation risk before continuing.",
+    }),
+  }),
 });
 
 export const ingestWorkspaceSchema = z.object({

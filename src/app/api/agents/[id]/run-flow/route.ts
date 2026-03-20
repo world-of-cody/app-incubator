@@ -25,36 +25,66 @@ export async function POST(
     return NextResponse.json({ message: "Agent not found" }, { status: 404 });
   }
 
+  const startedAt = new Date();
   const run = await prisma.automationRun.create({
     data: {
       agentId: agent.id,
       sessionId: parsed.data.sessionId,
       status: "RUNNING",
+      intent: parsed.data.intent,
+      dryRun: parsed.data.dryRun ?? undefined,
+      startedAt,
     },
   });
 
-  const result = await triggerAgentFlow({
-    agentId: parsed.data.agentId,
-    sessionId: parsed.data.sessionId,
-    workspacePath: parsed.data.workspacePath ?? agent.workspacePath,
-  }).catch((error) => ({
-    success: false as const,
-    error,
-  }));
+  try {
+    const result = await triggerAgentFlow({
+      runId: run.id,
+      agentSlug: agent.slug,
+      sessionId: parsed.data.sessionId,
+      workspacePath: parsed.data.workspacePath ?? agent.workspacePath,
+      intent: parsed.data.intent,
+      dryRun: parsed.data.dryRun,
+    });
 
-  await prisma.automationRun.update({
-    where: { id: run.id },
-    data: {
-      status: result.success ? "SUCCEEDED" : "FAILED",
-      logPath: result.success ? undefined : "",
-    },
-  });
+    await prisma.automationRun.update({
+      where: { id: run.id },
+      data: {
+        status: result.success ? "SUCCEEDED" : "FAILED",
+        dryRun: result.dryRun,
+        outputSummary: result.summary,
+        logPath: result.logPath,
+        finishedAt: new Date(),
+      },
+    });
 
-  return NextResponse.json({
-    status: result.success ? "triggered" : "failed",
-    runId: run.id,
-    output: result.success ? result.output : undefined,
-    error: result.success ? undefined : String(result.error),
-    todo: "Wire automation result to UI",
-  });
+    return NextResponse.json(
+      {
+        runId: run.id,
+        status: result.success ? "SUCCEEDED" : "FAILED",
+        dryRun: result.dryRun,
+        summary: result.summary,
+        logPath: result.logPath,
+      },
+      { status: result.success ? 202 : 500 }
+    );
+  } catch (error) {
+    await prisma.automationRun.update({
+      where: { id: run.id },
+      data: {
+        status: "FAILED",
+        outputSummary: error instanceof Error ? error.message : "Unknown automation failure",
+        finishedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        runId: run.id,
+        status: "FAILED",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }

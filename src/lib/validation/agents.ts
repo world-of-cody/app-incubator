@@ -6,6 +6,8 @@ export const agentsQuerySchema = z.object({
 
 export const runAgentFlowSchema = z.object({
   agentId: z.string().min(1, "agentId is required"),
+  intent: z.string().min(1, "intent is required"),
+  dryRun: z.boolean().optional(),
   sessionId: z.string().optional(),
   workspacePath: z.string().optional(),
 });
